@@ -31,29 +31,29 @@ func (s *S) TearDownTest(c *C) {
 }
 
 func makeClient(t *testing.T) *Client {
-	client, err := NewClient("foobartoken")
+	client, err := NewClient("foobarkey")
 
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	if client.Token != "foobartoken" {
-		t.Fatalf("token not set on client: %s", client.Token)
+	if client.Key != "foobarkey" {
+		t.Fatalf("key not set on client: %s", client.Key)
 	}
 
 	return client
 }
 
 func Test_NewClient_env(t *testing.T) {
-	os.Setenv("LINODE_TOKEN", "bar")
+	os.Setenv("LINODE_KEY", "bar")
 	client, err := NewClient("")
 
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	if client.Token != "bar" {
-		t.Fatalf("token not set on client: %s", client.Token)
+	if client.Key != "bar" {
+		t.Fatalf("key not set on client: %s", client.Key)
 	}
 }
 
@@ -64,7 +64,7 @@ func TestClient_NewRequest(t *testing.T) {
 		"foo": "bar",
 		"baz": "bar",
 	}
-	req, err := c.NewRequest(params, "POST", "/bar")
+	req, err := c.NewRequest(params, "GET", []string{"linode.list"})
 	if err != nil {
 		t.Fatalf("bad: %v", err)
 	}

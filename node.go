@@ -3,7 +3,6 @@ package linode
 import (
 	"fmt"
 	"strconv"
-	"strings"
 )
 
 type BasicNodeResponse struct {
@@ -12,7 +11,11 @@ type BasicNodeResponse struct {
 
 // Returns the slug for the region
 func (r *BasicNodeResponse) StringId() string {
-	return strconv.FormatInt(r.Id, 10)
+	if _, ok := r.Id["DATA"]["LINODEID"]; ok {
+		return strconv.FormatInt(r.Id["DATA"]["LINODEID"], 10)
+	} else {
+		return ""
+	}
 }
 
 type NodesResponse struct {
@@ -137,7 +140,8 @@ func (c *Client) DestroyNode(id string) error {
 // returns a Node and an error. An error will be returned for failed
 // requests with a nil Node.
 func (c *Client) RetrieveNode(id string) (Node, error) {
-	req, err := c.NewRequest(map[string]string{}, "GET", "linode.list")
+	actions := []string{"linode.list", "linode.ip.list", "linode.disk.list"}
+	req, err := c.NewRequest(map[string]string{}, "GET", actions)
 
 	if err != nil {
 		return Node{}, err

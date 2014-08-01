@@ -34,7 +34,7 @@ func (e *LinodeError) ErrorMessage() string {
 	if len(e.Messages) > 0 {
 		msgs := []string{}
 		for _, v := range e.Messages {
-			msgs = append(msgs, v)
+			msgs = append(msgs, v["ERRORMESSAGE"])
 		}
 		return strings.Join(msgs, ",")
 	} else {
@@ -43,36 +43,43 @@ func (e *LinodeError) ErrorMessage() string {
 }
 
 // NewClient returns a new linode client,
-// requires an authorization token. You can generate
+// requires an authorization key. You can generate
 // a key by visiting the Keys section of the Linode control panel
 // for your account.
 func NewClient(key string) (*Client, error) {
-	// If it exists, grab teh token from the environment
+	// If it exists, grab the key from the environment
 	if key == "" {
-		token = os.Getenv("LINODE_KEY")
+		key = os.Getenv("LINODE_KEY")
 	}
 
 	client := Client{
-		Token: token,
-		URL:   "https://api.linode.com",
-		Http:  http.DefaultClient,
+		Key:  key,
+		URL:  "https://api.linode.com",
+		Http: http.DefaultClient,
 	}
 	return &client, nil
 }
 
-// Creates a new request with the params
-func (c *Client) NewRequest(params map[string]string, method string, endpoint string) (*http.Request, error) {
+// Creates a new request with the actions and params specififed
+func (c *Client) NewRequest(method string, actions []map[string]string) (*http.Request, error) {
 	p := url.Values{}
-	u, err := url.Parse(c.URL + endpoint)
+	u, err := url.Parse(c.URL)
 
 	if err != nil {
 		return nil, fmt.Errorf("Error parsing base URL: %s", err)
 	}
 
-	// Build up our request parameters
-	for k, v := range params {
-		p.Add(k, v)
+	encodedActions, err := encodeBody(actions)
+	if err != nil {
+		return nil, fmt.Errorf("Error encoding request: %s", err)
 	}
+
+	// Add batch params
+	p.Add("api_action", "batch")
+	p.Add("api_requestArray", encodedActions)
+
+	// Add our auth key
+	p.Add("api_key", c.Key)
 
 	// Add the params to our URL
 	u.RawQuery = p.Encode()
@@ -91,7 +98,7 @@ func (c *Client) NewRequest(params map[string]string, method string, endpoint st
 // parseErr is used to take an error json resp
 // and return a single string for use in error messages
 func parseErr(resp *http.Response) error {
-	errBody := new(DoError)
+	errBody := new(LinodeError)
 
 	err := decodeBody(resp, &errBody)
 
@@ -100,7 +107,7 @@ func parseErr(resp *http.Response) error {
 		return fmt.Errorf("Error parsing error body for non-200 request: %s", err)
 	}
 
-	return fmt.Errorf("API Error: %s: %s", errBody.Id, errBody.Message)
+	return fmt.Errorf("API Error: %s", errBody.ErrorMessage())
 }
 
 // decodeBody is used to JSON decode a body
@@ -116,6 +123,16 @@ func decodeBody(resp *http.Response, out interface{}) error {
 	}
 
 	return nil
+}
+
+// Encodes an interface into a JSON string
+func encodeBody(obj interface{}) (string, error) {
+	bs, err := json.Marshal(obj)
+	if err != nil {
+		return "", err
+	}
+
+	return string(bs), nil
 }
 
 // checkResp wraps http.Client.Do() and verifies that the
