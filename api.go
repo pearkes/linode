@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
+	"strconv"
 )
 
 // Client provides a client to the Linode API
@@ -26,20 +26,12 @@ type Client struct {
 // LinodeError is the error format that they return
 // to us if there is a problem
 type LinodeError struct {
-	Id       string              `json:"id"`
-	Messages []map[string]string `json:"ERRORARRAY"`
+	Code    int64  `json:"ERRORCODE"`
+	Message string `json:"ERRORMESSAGE"`
 }
 
 func (e *LinodeError) ErrorMessage() string {
-	if len(e.Messages) > 0 {
-		msgs := []string{}
-		for _, v := range e.Messages {
-			msgs = append(msgs, v["ERRORMESSAGE"])
-		}
-		return strings.Join(msgs, ",")
-	} else {
-		return "No error message available"
-	}
+	return fmt.Sprintf("%s: %s", strconv.FormatInt(e.Code, 10), e.Message)
 }
 
 // NewClient returns a new linode client,

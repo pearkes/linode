@@ -41,23 +41,23 @@ func (s *S) Test_CreateNode_Bad(c *C) {
 
 	c.Assert(req.Form["api_action"], DeepEquals, []string{"batch"})
 	c.Assert(req.Form["api_requestArray"], DeepEquals, []string{"[{\"DataCenterID\":\"\",\"PlanID\":\"1\",\"api_action\":\"linode.create\"}]"})
-	c.Assert(err, IsNil)
-	c.Assert(id, IsNil)
+	c.Assert(err.Error(), Equals, "Errors from API: 8: PlanID is invalid. Check linode.plans.list")
+	c.Assert(id, Equals, "")
 }
 
 func (s *S) Test_RetrieveNode(c *C) {
 	testServer.Response(200, nil, nodeExample)
 
-	node, err := s.client.RetrieveNode("25")
+	node, err := s.client.RetrieveNode("586892")
 
 	_ = testServer.WaitRequest()
 
 	c.Assert(err, IsNil)
-	c.Assert(node.StringID(), Equals, "25")
+	c.Assert(node.ID, Equals, "586892")
 }
 
 func (s *S) Test_DestroyNode(c *C) {
-	testServer.Response(204, nil, "")
+	testServer.Response(200, nil, nodeExampleDelete)
 
 	opts := DestroyNode{
 		LinodeID:   "1",
@@ -112,15 +112,15 @@ var nodeExample = `
     "ERRORARRAY": [],
     "DATA": [
       {
-        "UPDATE_DT":"2009-07-18 12:53:043.0",
-        "DISKID":55320,
-        "LABEL":"256M Swap Image",
-        "TYPE":"swap",
-        "LINODEID":8098,
-        "ISREADONLY":0,
-        "STATUS":1,
-        "CREATE_DT":"2008-04-04 10:08:06.0",
-        "SIZE":256
+        "UPDATE_DT": "2009-07-18 12:53:043.0",
+        "DISKID": 55320,
+        "LABEL": "256M Swap Image",
+        "TYPE": "swap",
+        "LINODEID": 98,
+        "ISREADONLY": 0,
+        "STATUS": 1,
+        "CREATE_DT": "2008-04-04 10:08:06.0",
+        "SIZE": 256
       }
     ],
     "ACTION": "linode.disk.list"
