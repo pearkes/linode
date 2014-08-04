@@ -11,35 +11,38 @@ func TestNode(t *testing.T) {
 }
 
 func (s *S) Test_CreateNode(c *C) {
-	testServer.Response(202, nil, nodeExample)
+	testServer.Response(202, nil, nodeCreateExample)
 
 	opts := CreateNode{
-		Name: "foobar",
+		DatacenterID: "1",
+		PlanID:       "1",
 	}
 
 	id, err := s.client.CreateNode(&opts)
 
 	req := testServer.WaitRequest()
 
-	c.Assert(req.Form["name"], DeepEquals, []string{"foobar"})
+	c.Assert(req.Form["api_action"], DeepEquals, []string{"batch"})
+	c.Assert(req.Form["api_requestArray"], DeepEquals, []string{"[{\"DataCenterID\":\"1\",\"PlanID\":\"1\",\"api_action\":\"linode.create\"}]"})
 	c.Assert(err, IsNil)
-	c.Assert(id, Equals, "25")
+	c.Assert(id, Equals, "8098")
 }
 
 func (s *S) Test_CreateNode_Bad(c *C) {
 	testServer.Response(200, nil, nodeExampleError)
 
 	opts := CreateNode{
-		Name: "foobar",
+		PlanID: "1",
 	}
 
 	id, err := s.client.CreateNode(&opts)
 
 	req := testServer.WaitRequest()
 
-	c.Assert(req.Form["name"], DeepEquals, []string{"foobar"})
+	c.Assert(req.Form["api_action"], DeepEquals, []string{"batch"})
+	c.Assert(req.Form["api_requestArray"], DeepEquals, []string{"[{\"DataCenterID\":\"\",\"PlanID\":\"1\",\"api_action\":\"linode.create\"}]"})
 	c.Assert(err, IsNil)
-	c.Assert(id, Equals, "25")
+	c.Assert(id, IsNil)
 }
 
 func (s *S) Test_RetrieveNode(c *C) {
@@ -50,18 +53,18 @@ func (s *S) Test_RetrieveNode(c *C) {
 	_ = testServer.WaitRequest()
 
 	c.Assert(err, IsNil)
-	c.Assert(node.StringId(), Equals, "25")
-	c.Assert(node.RegionSlug(), Equals, "nyc1")
-	c.Assert(node.IsLocked(), Equals, "false")
-	c.Assert(node.NetworkingType(), Equals, "public")
-	c.Assert(node.IPV6Address(), Equals, "")
-	c.Assert(node.ImageSlug(), Equals, "foobar")
+	c.Assert(node.StringID(), Equals, "25")
 }
 
 func (s *S) Test_DestroyNode(c *C) {
 	testServer.Response(204, nil, "")
 
-	err := s.client.DestroyNode("25")
+	opts := DestroyNode{
+		LinodeID:   "1",
+		SkipChecks: "true",
+	}
+
+	err := s.client.DestroyNode(&opts)
 
 	_ = testServer.WaitRequest()
 

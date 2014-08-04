@@ -64,29 +64,18 @@ func TestClient_NewRequest(t *testing.T) {
 		"foo": "bar",
 		"baz": "bar",
 	}
-	req, err := c.NewRequest(params, "GET", []string{"linode.list"})
+
+	req, err := c.NewRequest("GET", []map[string]string{params})
+
 	if err != nil {
 		t.Fatalf("bad: %v", err)
 	}
 
-	encoded := req.URL.Query()
-	if encoded.Get("foo") != "bar" {
-		t.Fatalf("bad: %v", encoded)
-	}
-
-	if encoded.Get("baz") != "bar" {
-		t.Fatalf("bad: %v", encoded)
-	}
-
-	if req.URL.String() != "https://api.linode.com/v2/bar?baz=bar&foo=bar" {
+	if req.URL.String() != "https://api.linode.com?api_action=batch&api_key=foobarkey&api_requestArray=%5B%7B%22baz%22%3A%22bar%22%2C%22foo%22%3A%22bar%22%7D%5D" {
 		t.Fatalf("bad base url: %v", req.URL.String())
 	}
 
-	if req.Header.Get("Authorization") != "Bearer foobartoken" {
-		t.Fatalf("bad auth header: %v", req.Header)
-	}
-
-	if req.Method != "POST" {
+	if req.Method != "GET" {
 		t.Fatalf("bad method: %v", req.Method)
 	}
 }

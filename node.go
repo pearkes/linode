@@ -6,20 +6,29 @@ import (
 )
 
 type BasicNodeResponse struct {
-	Id map[string]map[string]int64 `json:"LinodeID"`
+	Data map[string]int64 `json:"DATA"`
 }
 
 // Returns the slug for the region
-func (r *BasicNodeResponse) StringId() string {
-	if _, ok := r.Id["DATA"]["LINODEID"]; ok {
-		return strconv.FormatInt(r.Id["DATA"]["LINODEID"], 10)
+func (r *BasicNodeResponse) StringID() string {
+	if _, ok := r.Data["LinodeID"]; ok {
+		return strconv.FormatInt(r.Data["LinodeID"], 10)
 	} else {
 		return ""
 	}
 }
 
 type NodesResponse struct {
-	Responses []NodeResponse `json:""`
+	Responses []NodeResponse
+}
+
+// Returns a node from the Nodes Response
+func (r *NodesResponse) Node(id string) (Node, error) {
+	if len(r.Responses) > 3 {
+		return Node{}, fmt.Errorf("Incorrect data returned from API: %#v", r.Responses)
+	}
+
+	return Node{}, nil
 }
 
 type NodeResponse struct {
@@ -29,7 +38,7 @@ type NodeResponse struct {
 // Node is used to represent a retrieved Node. All properties
 // are set as strings.
 type Node struct {
-	DataCenterId   int64  `json:"DATACENTERID"`
+	DataCenterID   int64  `json:"DATACENTERID"`
 	Dist           string `json:"DISTRIBUTIONVENDOR"`
 	Id             int64  `json:"LINODEID"`
 	Label          string `json:"LABEL"`
@@ -60,11 +69,11 @@ func (n *Node) StringStatus() string {
 		4:  "saved to disk",
 	}
 
-	return statusMap[d.Status]
+	return statusMap[int(n.Status)]
 }
 
 // Returns the slug for the region
-func (n *Node) StringId() string {
+func (n *Node) StringID() string {
 	return strconv.FormatInt(n.Id, 10)
 }
 
@@ -83,16 +92,18 @@ type CreateNode struct {
 // failed later on.
 func (c *Client) CreateNode(opts *CreateNode) (string, error) {
 	// Make the request parameters
-	params := make(map[string]string)
+	create := make(map[string]string)
 
-	params["DataCenterID"] = opts.DatacenterID
-	params["PlanID"] = opts.PlanID
+	create["DataCenterID"] = opts.DatacenterID
+	create["PlanID"] = opts.PlanID
 
 	if opts.PaymentTerm != "" {
-		params["PaymentTerm"] = opts.PaymentTerm
+		create["PaymentTerm"] = opts.PaymentTerm
 	}
 
-	req, err := c.NewRequest(params, "POST", "linode.create")
+	create["api_action"] = "linode.create"
+
+	req, err := c.NewRequest("POST", []map[string]string{create})
 
 	if err != nil {
 		return "", err
@@ -104,7 +115,7 @@ func (c *Client) CreateNode(opts *CreateNode) (string, error) {
 		return "", fmt.Errorf("Error creating node: %s", err)
 	}
 
-	node := new(NodeResponse)
+	node := new(BasicNodeResponse)
 
 	err = decodeBody(resp, &node)
 
@@ -113,14 +124,33 @@ func (c *Client) CreateNode(opts *CreateNode) (string, error) {
 	}
 
 	// The request was successful
-	return node.Node.StringId(), nil
+	return node.StringID(), nil
+}
+
+// DestroyNode contains the request parameters to destroy a
+// node.
+type DestroyNode struct {
+	LinodeID   string
+	SkipChecks string // bool
 }
 
 // DestroyNode destroys a node by the ID specified and
 // returns an error if it fails. If no error is returned,
 // the Node was succesfully destroyed.
-func (c *Client) DestroyNode(id string) error {
-	req, err := c.NewRequest(map[string]string{}, "POST", "linode.destroy")
+func (c *Client) DestroyNode(opts *DestroyNode) error {
+	destroy := make(map[string]string)
+
+	destroy["LinodeID"] = opts.LinodeID
+
+	if opts.SkipChecks != "" {
+		destroy["skipChecks"] = opts.SkipChecks
+	} else {
+		destroy["skipChecks"] = "false"
+	}
+
+	destroy["api_action"] = "linode.delete"
+
+	req, err := c.NewRequest("POST", []map[string]string{destroy})
 
 	if err != nil {
 		return err
@@ -140,8 +170,17 @@ func (c *Client) DestroyNode(id string) error {
 // returns a Node and an error. An error will be returned for failed
 // requests with a nil Node.
 func (c *Client) RetrieveNode(id string) (Node, error) {
-	actions := []string{"linode.list", "linode.ip.list", "linode.disk.list"}
-	req, err := c.NewRequest(map[string]string{}, "GET", actions)
+	as := []string{"linode.list", "linode.ip.list", "linode.disk.list"}
+	actions := []map[string]string{}
+
+	for _, v := range as {
+		a := make(map[string]string)
+		a["LinodeID"] = id
+		a["api_action"] = v
+		actions = append(actions, a)
+	}
+
+	req, err := c.NewRequest("GET", actions)
 
 	if err != nil {
 		return Node{}, err
@@ -149,10 +188,10 @@ func (c *Client) RetrieveNode(id string) (Node, error) {
 
 	resp, err := checkResp(c.Http.Do(req))
 	if err != nil {
-		return Node{}, fmt.Errorf("Error destroying node: %s", err)
+		return Node{}, fmt.Errorf("Error retrieving node: %s", err)
 	}
 
-	node := new(NodeResponse)
+	node := new(NodesResponse)
 
 	err = decodeBody(resp, node)
 
@@ -161,5 +200,6 @@ func (c *Client) RetrieveNode(id string) (Node, error) {
 	}
 
 	// The request was successful
-	return node.Node, nil
+	return node.Node(id)
+
 }
